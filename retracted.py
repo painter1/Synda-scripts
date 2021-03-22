@@ -7,7 +7,7 @@ This will get the names of up to 20,000 retracted datasets from the index node.
 It will start at an offset read from a file, and write a new offset to the file:
 the old offset plus the number of datasets discovered in this run. """
 
-import sys, re
+import sys, re, datetime
 import subprocess as sp
 import argparse, logging, time
 import debug, pdb
@@ -100,7 +100,7 @@ def one_query( cmd, starting_offset, prefix, test ):
     logging.info( "num_lines=%s" % num_lines )
     return num_lines, numFound, Nchanges
 
-def get_retracted( prefix="/home/painter/retracted/all-retracted-",
+def get_retracted( prefix,
                    starting_offset=0, npages=20, test=False ):
     """Queries the index node for a list of retracted datasets, starting at the prescribed
     offset in the list, and continuing for the prescribed number of 10,000-dataset pages.
@@ -130,8 +130,7 @@ def get_retracted( prefix="/home/painter/retracted/all-retracted-",
             save_starting_offset( starting_offset )
     return numFoundmax, Nchangesall
 
-def get_some_retracted( constraints='',
-                        prefix="/home/painter/retracted/some-retracted-", test=True ):
+def get_some_retracted( prefix, constraints='', test=True ):
     """Like get_retracted, but the query is limited as specified and _not_ paginated.
     Example of a constraint: "data_node=esgf-data3.ceda.ac.uk".  numFound is returned.
     Also returns Nchanges, the number of datasets which were newly marked as retracted.
@@ -148,8 +147,7 @@ def get_some_retracted( constraints='',
     else:
         return numFound, Nchanges
 
-def get_retracted_facet( facet, facets, constraint='',
-                         prefix="/home/painter/retracted/some-retracted-", test=True ):
+def get_retracted_facet( prefix, facet, facets, constraint='', test=True ):
     """Like get_retracted, but rather than do a paginated query this queries separately
     for each in a list of facets.  For example, facet='frequency' would have
     facets=['1hr', '1hrCM', 'day', 'mon',...].
@@ -163,19 +161,19 @@ def get_retracted_facet( facet, facets, constraint='',
         constraints = facet+'='+fct
         if constraint!='':
             constraints += '&'+constraint
-        numFoundnow, Nchangesnow = get_some_retracted( constraints, prefix, test )
+        numFoundnow, Nchangesnow = get_some_retracted( prefix, constraints, test )
         numFoundall += numFoundnow
         Nchangesall += Nchangesnow
     constraints = '&'.join([ facet+'!=%s'%fct for fct in facets ])
     if constraint!='':
         constraints += '&'+constraint
-    numFoundnow, Nchangesnow = get_some_retracted( constraints, prefix, test )
+    numFoundnow, Nchangesnow = get_some_retracted( prefix, constraints, test )
     numFoundall += numFoundnow
     Nchangesall += Nchangesnow
     return numFoundall, Nchangesall
 
-def get_retracted_multi_facets( fcts, constraints='', complement_query=True,\
-                                prefix="/home/painter/retracted/some-retracted-", test=True ):
+def get_retracted_multi_facets( prefix, fcts, constraints='', complement_query=True,\
+                                test=True ):
     """Like get_retracted, but rather than do a paginated query, queries separately for
     each combination of facets supplied by fcts.  fcts is a list of pairs (2-tuples),
     (fct, fcts1) where fct is a facet name, e.g. 'data_node' and fcts is a list of
@@ -204,7 +202,7 @@ def get_retracted_multi_facets( fcts, constraints='', complement_query=True,\
     elif len(constraints)>0:
         try:
             # Maybe the constraints are already enough to keep the query results small enough.
-            return get_some_retracted( constraints, prefix, test )
+            return get_some_retracted( prefix, constraints, test )
         except numFoundException as e:
             # There are too many query results; we have to constrain another facet.
             if len(fcts)>0:
@@ -220,7 +218,7 @@ def get_retracted_multi_facets( fcts, constraints='', complement_query=True,\
         if fct_constraint != '':
             fct_constraints = '&'.join( [fct_constraint, constraints] )
             numFound, Nchangesnow = get_retracted_multi_facets(
-                fcts[1:], fct_constraints, complement_query, prefix, test )
+                prefix, fcts[1:], fct_constraints, complement_query, test )
             numFoundall += numFound
             Nchangesall += Nchangesnow
     if complement_query:
@@ -228,7 +226,7 @@ def get_retracted_multi_facets( fcts, constraints='', complement_query=True,\
         if fct_constraint != '':
             fct_constraints = '&'.join( [fct_constraint, constraints] )
             numFound, Nchangesnow = get_retracted_multi_facets(
-                fcts[1:], fct_constraints, complement_query, prefix, test )
+                prefix, fcts[1:], fct_constraints, complement_query, test )
             numFoundall += numFound
             Nchangesall += Nchangesnow
     return numFoundall, Nchangesall
@@ -251,8 +249,7 @@ def my_data_nodes():
         "vesgint-data.ipsl.upmc.fr", "esgf-node.gfdl.noaa.gov", "esgf-data1.llnl.gov",
         "esg-dn1.tropmet.res.in", "esgf-data.csc.fi", "esgf-data2.llnl.gov", "esgf1.dkrz.de" ]
 
-def get_retracted_std3( prefix="/home/painter/retracted/some-retracted-",
-                        complement_query=True, test=True ):
+def get_retracted_std3( prefix, complement_query=True, test=True ):
     """Runs get_retracted_multi_facets on my three standard facets: data_node,
     time frequency, and realm.  Complements (i.e. anything not matching)
     are searched for iff complement_query be True.
@@ -266,24 +263,24 @@ def get_retracted_std3( prefix="/home/painter/retracted/some-retracted-",
     realms = [ 'aerosol', 'atmos', 'atmosChem', 'land', 'landIce', 'ocean', ' ocnBgChem',
                'ocnBgchem', 'seaIce' ]
     fcts = [ ('data_node',data_nodes), ('frequency',frequencies), ('realm',realms) ]
-    return get_retracted_multi_facets( fcts, '', complement_query, prefix, test)
+    return get_retracted_multi_facets( prefix, fcts, '', complement_query, test)
 
-def get_retracted_frequency( prefix="/home/painter/retracted/some-retracted-", test=True ):
+def get_retracted_frequency( prefix, test=True ):
     """Like get_retracted, but rather than do a paginated query this queries separately
     for each in a list of time frequencies.
     Returns numFound.
     Also returns Nchanges, the number of datasets which were newly marked as retracted."""
     frequencies = [ '1hr', '1hrCM', '3hr', '3hrPt', '6hr', '6hrPt', 'day', 'dec', 'fx',
                     'mon', 'monC', 'monPt', 'month', 'subhrPt', 'yr', 'yrPt' ]
-    return get_retracted_facet( 'frequency', frequencies, '', prefix, test )
+    return get_retracted_facet( prefix, 'frequency', frequencies, '', test )
 
-def get_retracted_data_node( prefix="/home/painter/retracted/some-retracted-", test=True ):
+def get_retracted_data_node( prefix, test=True ):
     """Like get_retracted, but rather than do a paginated query this queries separately
     for each in a list of data_nodes.
     Returns numFound.
     Also returns Nchanges, the number of datasets which were newly marked as retracted."""
     data_nodes = ["esgf-data3.ceda.ac.uk"]
-    return get_retracted_facet( 'data_node', data_nodes, '', prefix, test )
+    return get_retracted_facet( prefix, 'data_node', data_nodes, '', test )
 
 def get_retracted_data_node_orig( prefix="/home/painter/retracted/some-retracted-", test=True ):
     """Like get_retracted, but rather than do a paginated query this queries separately
@@ -292,9 +289,9 @@ def get_retracted_data_node_orig( prefix="/home/painter/retracted/some-retracted
     Also returns Nchanges, the number of datasets which were newly marked as retracted."""
     data_nodes = ["esgf-data3.ceda.ac.uk"]
     for dn in data_nodes:
-        get_some_retracted( 'data_node='+dn, prefix, test )
+        get_some_retracted( prefix, 'data_node='+dn, test )
     constraints = '&'.join([ 'data_node!=%s'%dn for dn in data_nodes ])
-    return get_some_retracted( constraints, prefix, test )
+    return get_some_retracted( prefix, constraints, test )
 
 if __name__ == '__main__':
     # Set up logging and arguments, then call the appropriate 'run' function.
@@ -321,8 +318,9 @@ if __name__ == '__main__':
     npages = args.npages
     test = args.test
     chunking = args.chunking
+    prefix = prefix + str(datetime.datetime.now().day) + '-' # append day of the month
 
-    if chunking=='paginated':
+    if chunking=='paginated':  #doesn't work, function is deleted
         numFound, Nchanges = get_retracted_paginated( prefix, starting_offset, npages, test )
     elif chunking=='data_node':
         numFound, Nchanges = get_retracted_data_node( prefix, test )

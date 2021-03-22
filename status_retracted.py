@@ -19,25 +19,35 @@ import logging
 import sqlite3
 import debug
 global conn, curs, Nupdates, Nchanges
+conn = None
 
 def setup():
-    """Initializes the connection to the database, etc."""
+    """Initializes logging and the connection to the database, etc."""
     global conn, curs, Nupdates
+
+    logfile = '/p/css03/scratch/logs/status_retracted.log'
+    logging.basicConfig( filename=logfile, level=logging.INFO, format='%(asctime)s %(message)s' )
+
     Nupdates = 0
+
     # normal:
-    conn = sqlite3.connect('/var/lib/synda/sdt/sdt.db')
-    # test on a temporary copy of the database:
-    #conn = sqlite3.connect('/home/painter/db/sdt.db')
-    curs = conn.cursor()
+    if conn is None:
+        conn = sqlite3.connect('/var/lib/synda/sdt/sdt.db')
+        # test on a temporary copy of the database:
+        #conn = sqlite3.connect('/home/painter/db/sdt.db')
+        curs = conn.cursor()
 
 def finish():
     """Closes connections to databases, etc."""
     global conn, curs
     conn.commit()
     conn.close()
+    conn = None
 
 def list_data_nodes():
     """returns a list of data_nodes in the database"""
+    global conn, curs
+    setup()
     cmd = "SELECT data_node FROM file GROUP BY data_node ORDER BY COUNT(*)"
     curs.execute( cmd )
     return curs.fetchall()
@@ -146,7 +156,7 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
             cmd = "UPDATE dataset SET status='%s' WHERE dataset_functional_id='%s'" %\
                   (new_status,dataset_fid)
             curs.execute( cmd )
-            #logging.info( "dataset %s changed from %s to %s " % (dataset_fid,status,new_status) )
+            logging.info( "dataset %s changed from %s to %s " % (dataset_fid,status,new_status) )
             Nchanges += 1
 
     if Nupdates>=100:
@@ -163,8 +173,8 @@ def status_retracted( datasets, suffix='retracted' ):
     """
     global Nchanges
     Nchanges = 0
-    logging.info( "Reading list of retracted datasets " + datasets )
     setup()
+    logging.info( "Reading list of retracted datasets " + datasets )
     with open( datasets, 'r' ) as f:
         for line in f:
             # If this line comes from a JSON file, these operations will be likely to get just
@@ -211,10 +221,6 @@ def files_retracted( files, suffix='retracted' ):
     finish()
 
 if __name__ == '__main__':
-    # Set up logging and arguments, then call the appropriate 'run' function.
-    logfile = '/p/css03/scratch/logs/status_retracted.log'
-    logging.basicConfig( filename=logfile, level=logging.INFO, format='%(asctime)s %(message)s' )
-
     suffix = 'retracted'
     if len( sys.argv ) > 1:
         if sys.argv[1]=='file':
