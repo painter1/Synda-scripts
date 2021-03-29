@@ -265,7 +265,7 @@ if __name__ == '__main__':
             print '  ','{:30.30} {:5d}'.format(fb,fb_dict[dn][fb])
 #    pprint( fb_dict )
 
-    print "\nretraction summary since%s:"%start_time
+    print "\nretraction summary since %s:"%start_time
     for retc in retraction_counts(start_time):
         print retc
 

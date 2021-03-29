@@ -41,5 +41,9 @@ echo transfer.log: >> $LOGFILE 2>&1
 /home/painter/scripts/reports.py $PERF_START_DATE >> $LOGFILE 2>&1
 
 echo >> $LOGFILE
+echo last mark_published errors: >> $LOGFILE 2>&1
+grep "Exception caught in mark_published_all" /p/css03/scratch/logs/mark_published.log | tail -3 >> $LOGFILE 2>&1
+
+echo >> $LOGFILE
 echo last daemon starts: >> $LOGFILE 2>&1
 tail -3 /var/log/synda/daemon/daemon_start.log >> $LOGFILE 2>&1
