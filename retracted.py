@@ -39,12 +39,13 @@ def save_starting_offset( starting_offset ):
     with open(foffset,'w') as f:
         f.write( str(starting_offset) )
 
-def one_query( cmd, starting_offset, prefix, test ):
+def one_query( cmd, starting_offset, path, test ):
     """Does one query specified by cmd, starting at the specified offset.
     Returns the number of datasets received in the response, which can be used
     to compute the next offset.  Also returns numFound, extracted from the response; and
     Nchanges, the number of datasets which were newly marked as retracted.
-    The other arguments are a prefix for constructing file paths, and a flag which is True iff
+    The other arguments are a file path for the json input file and txt output file (without
+    the '.json' and '.txt' suffixes) , and a flag which is True iff
     this is a test of the query system, and the database is not to be referenced."""
 
     logging.info( cmd )
@@ -60,7 +61,7 @@ def one_query( cmd, starting_offset, prefix, test ):
         raise e
 
     # logging and convert json output to a text list of datasets:
-    cmd = "grep numFound "+prefix+"%s.json" % starting_offset
+    cmd = "grep numFound "+path+".json"
     # Apply the grep command.
     # BTW this is simpler but prints the whole numFound line: sp.call(cmd, shell=True)
     # example of nFstr:
@@ -71,10 +72,9 @@ def one_query( cmd, starting_offset, prefix, test ):
     # example of numFound (an int):  132311
     numFound = map(int, re.findall(r'\d+',nF) )[0]
     logging.info( nF )
-    cmd = ('grep \\"instance_id\\" '+prefix+'%s.json > '+prefix+'%s.txt') %\
-          (starting_offset,starting_offset)
+    cmd = 'grep \\"instance_id\\" '+path+'.json > '+path+'.txt'
     sp.call(cmd, shell=True)
-    with open(prefix+'%s.txt' % starting_offset) as fids: num_lines = len(fids.readlines())
+    with open(path+'.txt') as fids: num_lines = len(fids.readlines())
     # ... a terse way to count lines, memory hog ok because file is <10K lines.
     if num_lines<numFound:
         raise numFoundException
@@ -82,7 +82,7 @@ def one_query( cmd, starting_offset, prefix, test ):
     # Record the retracted datasets in the database:
     if not test:
         try:
-            Nchanges = status_retracted.status_retracted( prefix+'%s.txt' % starting_offset )
+            Nchanges = status_retracted.status_retracted( path+'.txt' )
             # ... this defaults to suffix='retracted'
         except Exception as e:
             # database access errors are what I want to be prepared for, but I'm
@@ -91,7 +91,8 @@ def one_query( cmd, starting_offset, prefix, test ):
             logging.error("will try again soon")
             #   ... For AssertionError, e or str(e) prints as ''.
             # But an error here usually is a "database is locked".  Rather than do the right
-            # thing, I'll do the simplest to code:  wait 10 minutes and try again.
+            # thing, I'll do the simplest to code:  wait 10 minutes and go on.  Maybe we'll
+            # succeed the next time status_retracted is called on this data.
             # The '-1' is a flag to tell the caller to leave starting_offset unchanged so the
             # next run will retry from the same point.
             time.sleep(600)
@@ -115,7 +116,8 @@ def get_retracted( prefix,
           % (starting_offset,starting_offset)
     Nchangesall = 0
     for N in range(npages):
-        num_lines, numFound, Nchanges = one_query( cmd, starting_offset, prefix, test )
+        path = prefix+str(starting_offset)
+        num_lines, numFound, Nchanges = one_query( cmd, starting_offset, path, test )
         numFoundmax = max( numFoundmax, numFound )
         Nchangesall += Nchanges
         if num_lines == -1:
@@ -132,14 +134,19 @@ def get_retracted( prefix,
 
 def get_some_retracted( prefix, constraints='', test=True ):
     """Like get_retracted, but the query is limited as specified and _not_ paginated.
-    Example of a constraint: "data_node=esgf-data3.ceda.ac.uk".  numFound is returned.
-    Also returns Nchanges, the number of datasets which were newly marked as retracted.
+    The string constraints is the concatenation of 0 or more constraints separated by '&'.
+    Example of a constraint: "data_node=esgf-data3.ceda.ac.uk".
+    Two numbers are returned:  numFound and Nchanges, the number of datasets which were newly
+    marked as retracted.
     """
-    cmd = "wget -O "+prefix+\
-          "0.json 'https://esgf-node.llnl.gov/esg-search/search?project=CMIP6&retracted=true&" +\
+    constr2 = constraints.replace('!=','=NOT')
+    constr3 = '_'.join([con.split('=')[1] for con in constr2.split('&') if con.find('=')>=0])
+    path = prefix + constr3
+    cmd = "wget -O "+path+'.json'+\
+          " 'https://esgf-node.llnl.gov/esg-search/search?project=CMIP6&retracted=true&" +\
           constraints +\
           "&fields=instance_id&replica=false&limit=10000'"
-    num_lines, numFound, Nchanges = one_query( cmd, 0, prefix, test )
+    num_lines, numFound, Nchanges = one_query( cmd, 0, path, test )
     logging.info( "get_some_retracted; constraints=%s, num_lines=%s, numFound=%s"%
                   (constraints, num_lines, numFound ) )
     if num_lines<numFound:
@@ -260,7 +267,7 @@ def get_retracted_std3( prefix, complement_query=True, test=True ):
                     'mon', 'monC', 'monPt', 'month', 'subhrPt', 'yr', 'yrPt' ]
     # data_nodes = ["esgf-data3.ceda.ac.uk"]
     data_nodes = my_data_nodes()
-    realms = [ 'aerosol', 'atmos', 'atmosChem', 'land', 'landIce', 'ocean', ' ocnBgChem',
+    realms = [ 'aerosol', 'atmos', 'atmosChem', 'land', 'landIce', 'ocean', 'ocnBgChem',
                'ocnBgchem', 'seaIce' ]
     fcts = [ ('data_node',data_nodes), ('frequency',frequencies), ('realm',realms) ]
     return get_retracted_multi_facets( prefix, fcts, '', complement_query, test)
