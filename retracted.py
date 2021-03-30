@@ -88,7 +88,7 @@ def one_query( cmd, starting_offset, path, test ):
             # database access errors are what I want to be prepared for, but I'm
             # catching all exceptions here
             logging.error("Failed with exception %s" % e.__repr__() )
-            logging.error("will try again soon")
+            logging.error("We can try again some day.")
             #   ... For AssertionError, e or str(e) prints as ''.
             # But an error here usually is a "database is locked".  Rather than do the right
             # thing, I'll do the simplest to code:  wait 10 minutes and go on.  Maybe we'll

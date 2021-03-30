@@ -18,12 +18,12 @@ import sys, pdb
 import logging
 import sqlite3
 import debug
-global conn, curs, Nupdates, Nchanges
+global conn, Nupdates, Nchanges
 conn = None
 
 def setup():
     """Initializes logging and the connection to the database, etc."""
-    global conn, curs, Nupdates
+    global conn, Nupdates
 
     logfile = '/p/css03/scratch/logs/status_retracted.log'
     logging.basicConfig( filename=logfile, level=logging.INFO, format='%(asctime)s %(message)s' )
@@ -32,37 +32,52 @@ def setup():
 
     # normal:
     if conn is None:
-        conn = sqlite3.connect('/var/lib/synda/sdt/sdt.db')
+        timeout = 12000  # in seconds; i.e. 200 minutes
+        conn = sqlite3.connect( '/var/lib/synda/sdt/sdt.db', timeout )
         # test on a temporary copy of the database:
-        #conn = sqlite3.connect('/home/painter/db/sdt.db')
-        curs = conn.cursor()
+        #conn = sqlite3.connect( '/home/painter/db/sdt.db', timeout )
 
 def finish():
     """Closes connections to databases, etc."""
-    global conn, curs
+    global conn
     conn.commit()
     conn.close()
     conn = None
 
 def list_data_nodes():
     """returns a list of data_nodes in the database"""
-    global conn, curs
+    global conn
     setup()
-    cmd = "SELECT data_node FROM file GROUP BY data_node ORDER BY COUNT(*)"
-    curs.execute( cmd )
-    return curs.fetchall()
+    try:
+        cmd = "SELECT data_node FROM file GROUP BY data_node ORDER BY COUNT(*)"
+        curs = conn.cursor()
+        curs.execute( cmd )
+        datanodes = curs.fetchall()
+    except Exception as e:
+        logging.debug("status_retracted.list_data_nodes() saw an exception %s" %e )
+        raise e
+    finally:
+        curs.close()
+    return datanodes
 
 def file_retracted_status( file_id, suffix='retracted' ):
     """Updates the status of a single file which has been retracted.  file_id can be a number
     or a 1-tuple containg a number, which is a file_id in the Synda database."""
-    global conn, curs, Nupdates
+    global conn, Nupdates
     try:    # convert tuple to a number
         file_id=file_id[0]
     except:
         pass
-    cmd = "SELECT status FROM file WHERE file_id=%s" % file_id
-    curs.execute( cmd )
-    results = curs.fetchall()  # e.g. [('done',)]
+    try:
+        cmd = "SELECT status FROM file WHERE file_id=%s" % file_id
+        curs = conn.cursor()
+        curs.execute( cmd )
+        results = curs.fetchall()  # e.g. [('done',)]
+    except Exception as e:
+        logging.debug("status_retracted.file_retracted_status() 1 saw an exception %s" %e )
+        raise e
+    finally:
+        curs.close()
     assert( len(results) == 1 )
     status = results[0][0]    # e.g. 'done'
     if status[-len(suffix):]==suffix:
@@ -84,8 +99,15 @@ def file_retracted_status( file_id, suffix='retracted' ):
         #print "From file_id", file_id, "results=", results, "status=",status
         return
     #print "From file_id", file_id, "results=", results, "status=",status, "newstatus=",newstatus
-    cmd = "UPDATE file SET status='%s' WHERE file_id=%s" % (newstatus,file_id)
-    curs.execute( cmd )
+    try:
+        cmd = "UPDATE file SET status='%s' WHERE file_id=%s" % (newstatus,file_id)
+        curs = conn.cursor()
+        curs.execute( cmd )
+    except Exception as e:
+        logging.debug("status_retracted.file_retracted_status() 2 saw an exception %s" %e )
+        raise e
+    finally:
+        curs.close()
     Nupdates += 1
     #logging.info( "file %s changed from %s to %s " % (file_id,status,new_status) )
 
@@ -95,11 +117,18 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
     status of the dataset.  The input  argument is its dataset_functional_id in the Synda database.
     If the dataset isn't in the database, the database is not changed.
     """
-    global conn, curs, Nupdates, Nchanges
+    global conn, Nupdates, Nchanges
     cmd = "SELECT file_id FROM file WHERE dataset_id IN "+\
           "(SELECT dataset_id FROM dataset WHERE dataset_functional_id='%s')" % dataset_fid
-    curs.execute( cmd )
-    fresults = curs.fetchall()
+    try:
+        curs = conn.cursor()
+        curs.execute( cmd )
+        fresults = curs.fetchall()
+    except Exception as e:
+        logging.debug("status_retracted.dataset_retracted_status() 1 saw an exception %s" %e )
+        raise e
+    finally:
+        curs.close()
     if len(fresults)==0:
         # We usually get datasets into the database before they are retracted and disappear.
         # Do we have this dataset at all?  Is it superceded by a later version?
@@ -110,8 +139,15 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
         #      % ( dataset_fid[:-9], )
         cmd = "SELECT path_without_version FROM dataset WHERE dataset_functional_id='%s'" %\
               dataset_fid
-        curs.execute(cmd)
-        presults = curs.fetchall()
+        try:
+            curs = conn.cursor()
+            curs.execute(cmd)
+            presults = curs.fetchall()
+        except Exception as e:
+            logging.debug("status_retracted.dataset_retracted_status() 2 saw an exception %s" %e)
+            raise e
+        finally:
+            curs.close()
         if len(presults)==0:
             # The dataset is not in the database.
             return
@@ -121,8 +157,16 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
             path_without_version = presults[0]
             cmd = "SELECT dataset_functional_id FROM dataset WHERE path_without_version='%s'" %\
                   path_without_version
-            curs.execute(cmd)
-            dresults = curs.fetchall()
+            try:
+                curs = conn.cursor()
+                curs.execute(cmd)
+                dresults = curs.fetchall()
+            except Exception as e:
+                logging.debug("status_retracted.dataset_retracted_status() 3 saw an exception %s"
+                              %e)
+                raise e
+            finally:
+                curs.close()
             for dfid in dresults:
                 if dfid[0]==dataset_fid:
                     same_version_exists = True
@@ -146,8 +190,15 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
 
     # Finally change the status of this dataset itself
     cmd = "SELECT status FROM dataset WHERE dataset_functional_id='%s'" % dataset_fid
-    curs.execute( cmd )
-    results = curs.fetchall()  # e.g. [('complete',)]
+    try:
+        curs = conn.cursor()
+        curs.execute( cmd )
+        results = curs.fetchall()  # e.g. [('complete',)]
+    except Exception as e:
+        logging.debug("status_retracted.dataset_retracted_status() 4 saw an exception %s" %e)
+        raise e
+    finally:
+        curs.close()
     assert( len(results) <= 1 )
     if len(results)==1:
         status = results[0][0]    # e.g. 'complete'
@@ -155,7 +206,14 @@ def dataset_retracted_status( dataset_fid, suffix='retracted' ):
             new_status = status + ','+suffix
             cmd = "UPDATE dataset SET status='%s' WHERE dataset_functional_id='%s'" %\
                   (new_status,dataset_fid)
-            curs.execute( cmd )
+            try:
+                curs = conn.cursor()
+                curs.execute( cmd )
+            except Exception as e:
+                logging.debug("status_retracted.dataset_retracted_status() 5 saw an exception %s" %e)
+                raise e
+            finally:
+                curs.close()
             logging.info( "dataset %s changed from %s to %s " % (dataset_fid,status,new_status) )
             Nchanges += 1
 
@@ -195,8 +253,11 @@ def status_retracted( datasets, suffix='retracted' ):
                 # by the data node
                 dataset_fid = dataset_fid.split('|')[0] # deletes '|' and everything after.
             dataset_fid = dataset_fid.replace('</str>','')
-            dataset_retracted_status( dataset_fid, suffix )
-            #print
+            try:
+                dataset_retracted_status( dataset_fid, suffix )
+            except Exception as e:
+                logging.error( "status_retracted() saw an exception %s" %e )
+                raise e
     finish()
     logging.info( "Finished processing retracted datasets " + datasets )
     logging.info( "%s datasets were newly marked as %s" % (Nchanges,suffix) )
@@ -213,8 +274,15 @@ def files_retracted( files, suffix='retracted' ):
         for line in f:
             filename = line.strip()
             cmd = "SELECT file_id FROM file WHERE filename='%s'" % filename
-            curs.execute( cmd )
-            results = curs.fetchall()
+            try:
+                curs = conn.cursor()
+                curs.execute( cmd )
+                results = curs.fetchall()
+            except Exception as e:
+                logging.debug("status_retracted.files_retracted() saw an exception %s" %e)
+                raise e
+            finally:
+                curs.close()
             assert( len(results)==1 )
             file_id = results[0][0]
             file_retracted_status( file_id, suffix )

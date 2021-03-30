@@ -4,7 +4,7 @@
 
 from datetime import datetime, timedelta
 from pprint import pprint
-import os, pdb
+import sys, os, pdb
 import debug
 
 global inst, scheme, TransferLOG, start_time
@@ -153,12 +153,16 @@ def transfer_fallback_counts( sincelines ):
     return len(fallbacklines), dn_fallback, fb_dict
     
 def retraction_counts( starttime ):
+    """Returns the retracted.py run summaries (normally just one) with numFound and Nchanges.
+    Also returns those exceptions which retracted.one_query() catches from status_retracted.py.
+    Usually these are "database is locked" exceptions which occurred despite multiple retries."""
     sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=12000 )
     # Normally we just want the last line.  But that won't work if there are two runs in a
     # single day, or a run hasn't finished yet.
     summaries = [l[l.find("End of retracted.py")+21:] for l in sincelines if
                  l.find("End of retracted.py.")>0]
-    return summaries
+    exceptions = [l[l] for l in sincelines if l.find("Failed with exception")>0]
+    return summaries, exceptions
 
 def interesting_transfer_error( line ):
     """Tests a transfer.log line for whether it calls for human attention."""
@@ -266,8 +270,12 @@ if __name__ == '__main__':
 #    pprint( fb_dict )
 
     print "\nretraction summary since %s:"%start_time
-    for retc in retraction_counts(start_time):
-        print retc
+    ret_counts, exceptions = retraction_counts(start_time)
+    for retc in ret_counts:
+        # Note retc ends with a newline, print ends with another newline which we don't need.
+        sys.stdout.write( retc )
+    sys.stdout.flush()
+    print " %s exceptions" % len(exceptions)
 
     print "\ntransfer errors:"
     terrors = interesting_transfer_errors( sincelines )
