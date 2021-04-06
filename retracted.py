@@ -48,16 +48,22 @@ def one_query( cmd, starting_offset, path, test ):
     the '.json' and '.txt' suffixes) , and a flag which is True iff
     this is a test of the query system, and the database is not to be referenced."""
 
-    logging.info( cmd )
+    logging.info( "cmd=%s" % cmd )
     wget_out = "undefined wget_out"
     try:
         wget_out = sp.check_output(cmd, shell=True, stderr=sp.STDOUT)
-        logging.info( wget_out )
+        logging.info( "wget_out=%s" % wget_out )
     except Exception as e:
-        logging.info( wget_out )
-        logging.error( e )
-        logging.error( "return code=%s" % e.returncode )
-        logging.error( "error output=%s" % e.output )
+        logging.error( "one_query, wget exception, wget_out=%s" % wget_out )
+        logging.error( " exception is %s" % e )
+        try:
+            logging.error( "return code=%s" % e.returncode )
+        except:
+            pass
+        try:
+            logging.error( "error output=%s" % e.output )
+        except:
+            pass
         raise e
 
     # logging and convert json output to a text list of datasets:
@@ -77,6 +83,7 @@ def one_query( cmd, starting_offset, path, test ):
     with open(path+'.txt') as fids: num_lines = len(fids.readlines())
     # ... a terse way to count lines, memory hog ok because file is <10K lines.
     if num_lines<numFound:
+        logging.info( "one_query numFound=%s>num_lines=%s from %s !" % (numFound,num_lines,path) )
         raise numFoundException
 
     # Record the retracted datasets in the database:
@@ -150,6 +157,7 @@ def get_some_retracted( prefix, constraints='', test=True ):
     logging.info( "get_some_retracted; constraints=%s, num_lines=%s, numFound=%s"%
                   (constraints, num_lines, numFound ) )
     if num_lines<numFound:
+        logging.info( "get_some_retracted numFound=%s>num_lines=%s !" % (numFound,num_lines) )
         raise numFoundException
     else:
         return numFound, Nchanges
@@ -269,7 +277,10 @@ def get_retracted_std3( prefix, complement_query=True, test=True ):
     data_nodes = my_data_nodes()
     realms = [ 'aerosol', 'atmos', 'atmosChem', 'land', 'landIce', 'ocean', 'ocnBgChem',
                'ocnBgchem', 'seaIce' ]
-    fcts = [ ('data_node',data_nodes), ('frequency',frequencies), ('realm',realms) ]
+    activities = [ 'AerChemMIP', 'C4MIP', 'CFMIP', 'CMIP', 'DAMIP', 'DCPP', 'HighResMIP', 'LUMIP',
+                   'PAMIP', 'RFMIP', 'ScenarioMIP', 'VolMIP' ]
+    fcts = [ ('data_node',data_nodes), ('frequency',frequencies), ('realm',realms),
+             ('activity_id',activities) ]
     return get_retracted_multi_facets( prefix, fcts, '', complement_query, test)
 
 def get_retracted_frequency( prefix, test=True ):
