@@ -25,8 +25,10 @@ def setup(db):
     """Initializes the connection to the database, etc."""
     global conn
     # normal:
-    conn = sqlite3.connect(db)  # typical db: '/var/lib/synda/sdt/sdt.db'
-    #                               or test db: '/home/painter/db/sdt.db'
+    timeout = 12000  # in seconds; i.e. 200 minutes
+    conn = sqlite3.connect( db, timeout )
+    # ... typical db: '/var/lib/synda/sdt/sdt.db'
+    #     or test db: '/home/painter/db/sdt.db'
     #curs = conn.cursor()
     # safer to get the cursor when needed, and close it quickly: doesn't lock out other processes
 
