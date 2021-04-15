@@ -87,7 +87,7 @@ def transfer_error_counts( sincelines ):
         "Unable to establish SSL connection", "Connection closed at byte",
         "The GSI XIO driver failed to establish a secure connection.",
         "File corruption detected", "ERROR 404", "No such file or directory",
-        "System error in open: Permission denied",
+        "System error in open",
         "sdget_status=7", # i.e. sdget.sh was killed by SIGINT or SIGTERM.
         #                  This normally means that the daemon died.
         "No data received", "Operation not permitted",
