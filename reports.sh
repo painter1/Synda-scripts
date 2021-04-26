@@ -14,7 +14,9 @@ synda queue >> $LOGFILE 2>&1
 
 # PERF_START_DATE should be the previous end date; but if we run this
 # daily at the same time every day, this is 24 hours ending now:
-export PERF_START_DATE=`date --date=yesterday '+%Y-%m-%dT%H:%M'`
+#export PERF_START_DATE=`date --date=yesterday '+%Y-%m-%dT%H:%M'`
+# the same, but for weekly:
+export PERF_START_DATE=`date --date='1 week ago' '+%Y-%m-%dT%H:%M'`
 export PERF_END_DATE=`date '+%Y-%m-%dT%H:%M'`
 # daily at the same time every day, this is midnight to midnight:
 #export PERF_START_DATE=`date --date=yesterday '+%Y-%m-%dT00:00'`
