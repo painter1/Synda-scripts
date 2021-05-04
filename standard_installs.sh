@@ -6,7 +6,7 @@
 
 source /home/painter/.bash_profile
 
-export LOGFILE=/var/log/synda/install/install-`date --iso-8601=date`.log
+export LOGFILE=/var/log/synda/install/install-`date -d last-monday --iso-8601=date`.Log
 #...was export LOGFILE=/var/log/synda/install/install.log
 echo >> $LOGFILE 2>&1
 echo `date --iso-8601=minutes` "begin standard_installs_v3.sh" >> $LOGFILE 2>&1
