@@ -28,7 +28,7 @@ $PERF >> $LOGFILE 2>&1
 
 echo >> $LOGFILE
 echo Installation summary: >> $LOGFILE 2>&1
-export INSTALLFILE=/var/log/synda/install/install-`date  --date=last-monday --iso-8601=date`.log
+export INSTALLFILE=/var/log/synda/install/install-`date  --date=last-sunday --iso-8601=date`.log
 /home/painter/scripts/count_installed.py $INSTALLFILE >> $LOGFILE 2>&1
 
 echo >> $LOGFILE
