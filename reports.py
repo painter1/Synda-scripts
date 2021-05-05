@@ -7,10 +7,10 @@ from pprint import pprint
 import sys, os, pdb
 import debug
 
-global inst, scheme, TransferLOG, start_time
+global inst, scheme, TransferLOG, start_timeN
 inst = {}
 scheme = {}
-start_time = 1 # an integer number of days before present, normally 1
+start_timeN = 7 # an integer number of days before present, normally 7
 TransferLOG  = '/var/log/synda/sdt/transfer.log'  # LLNL standard
 DiscoveryLOG = '/var/log/synda/sdt/discovery.log' # LLNL standard
 #TransferLOG  = '/etc/synda/sdt/log/transfer.log'  # master branch default
@@ -24,18 +24,26 @@ def tail(f, n):
     lines = stdout.readlines(); stdout.close()
     return lines
 
-def logsince( logfile, starttime, taillen=12345000 ):
+def logsince( logfile, starttime, taillen=15123456 ):
     """returns lines of a log file since a start time.
-    By default, we look at only the last 12,345,000 lines of the log file, as this is sufficient
-    for all Synda use that I have seen.  A tenth of that is not sufficient.  A third of that
-    works on a slow day.  Note that if start_time>1 this may not provide complete coverage.
+
+    The option taillen is the how many lines of the end of the file are sufficient to ensure
+    coverage of all logging since starttime.
+    The last 15 million lines of the log file will reliably cover transfer.log and other log files
+    for several days, in all Synda use that I have seen.  It will sometimes, maybe usually, work for
+    a week of transfer.log, the biggest one.  A tenth of that is not sufficient to guarantee a even
+    one-day coverage of transfer.log.  A third of that often covers a full day.  These are enough
+    lines so that getting them may take a significant amount of time.
+
     It is expected that each line will begin with a time.  The format of this time and of
-    starttime format is Synda's, i.e.  "2020-10-22 11:32:12"."""
+    starttime format is Synda's, i.e.  "2020-10-22 11:32:12".
+    """
     starttime = starttime.replace('T',' ')
     lastlines = tail( logfile, taillen )
     datedlines = [ l for l in lastlines if l[0:4]==starttime[0:4] or
                    l[0:4]==str(int(starttime[0:4])+1) ]
     sincelines = [ l for l in datedlines if l[:19]>=starttime[:19] ]
+    pdb.set_trace()
     return sincelines
 
 def logline_datanode( ll ):
@@ -153,9 +161,11 @@ def transfer_fallback_counts( sincelines ):
     return len(fallbacklines), dn_fallback, fb_dict
     
 def retraction_counts( starttime ):
-    """Returns the retracted.py run summaries (normally just one) with numFound and Nchanges.
+    """Returns the retracted.py run summaries with numFound and Nchanges.
     Also returns those exceptions which retracted.one_query() catches from status_retracted.py.
     Usually these are "database is locked" exceptions which occurred despite multiple retries."""
+    # for one day: sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=12000 )
+    # good enough for at least a week, maybe as much as four weeks:
     sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=12000 )
     # Normally we just want the last line.  But that won't work if there are two runs in a
     # single day, or a run hasn't finished yet.
@@ -214,10 +224,13 @@ def interesting_discovery_errors( lines ):
 
 
 if __name__ == '__main__':
-    start_time = (datetime.now()-timedelta(days=start_time)).strftime('%Y-%m-%d %H:%m')
+    if len(sys.argv)>1:
+        start_time = sys.argv[1]
+    else:
+        start_time = (datetime.now()-timedelta(days=start_timeN)).strftime('%Y-%m-%d %H:%m')
     print "From",start_time,':'
-    sincelines = logsince( TransferLOG, start_time )
-    print "searching", len(sincelines), "lines"
+    sincelines = logsince( TransferLOG, start_time, taillen=15123456 )
+    print "searching", len(sincelines), "lines of transfer.log"
     donecount, dn_done = transfer_done_counts(sincelines)
     knownerr, unknownerr, errdict, dn_errs, unknowns = transfer_error_counts(sincelines)
     fallbackcount, dn_fallback, fb_dict = transfer_fallback_counts(sincelines)
@@ -286,7 +299,9 @@ if __name__ == '__main__':
             print line
 
     print "\ndiscovery errors:"
-    disclines = logsince( DiscoveryLOG, start_time )
+    disclines = logsince( DiscoveryLOG, start_time, taillen=1234000 )
+    #...The last 123000 lines of discovery.log might cover a week if we're not too busy.
+    # The last 1234000 lines is safe.
     print "searching", len(disclines), "lines"
     terrors = interesting_discovery_errors( disclines )
     if len(terrors)==0:
