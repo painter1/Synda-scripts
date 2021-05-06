@@ -43,7 +43,6 @@ def logsince( logfile, starttime, taillen=15123456 ):
     datedlines = [ l for l in lastlines if l[0:4]==starttime[0:4] or
                    l[0:4]==str(int(starttime[0:4])+1) ]
     sincelines = [ l for l in datedlines if l[:19]>=starttime[:19] ]
-    pdb.set_trace()
     return sincelines
 
 def logline_datanode( ll ):
