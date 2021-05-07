@@ -199,7 +199,7 @@ def move_and_record( three_paths, suffix ):
                     # data in both directories.  Probably the dataset was changed
                     split_datasets.append( vnh )
                     logging.info("data is in both %s and %s" % (scrv,epbv) )
-                elif not os.path.isdir(srcv):
+                elif not os.path.isdir(scrv):
                     # The source doesn't exist, and it hasn't already been (substantively) moved.
                     nosrc_datasets.append( vnh )
                     logging.info("source %s does not exist" % scrv )
