@@ -86,7 +86,7 @@ def transfer_error_counts( sincelines ):
     known_errors = [
         "ERROR 503: Service Unavailable", "503 Service Temporarily Unavailable",
         "Server side credential failure", "Cannot find trusted CA certificate",
-        "Valid credentials coult not be found",
+        "Valid credentials could not be found",
         "/var/tmp/synda/sdt/1682/.esg/credentials.pem is not a valid file",
         "Temporary failure in name resolution", "unable to resolve host address",
         "Connection timed out", "Connection refused", "Connection reset by peer",
@@ -99,7 +99,8 @@ def transfer_error_counts( sincelines ):
         #                  This normally means that the daemon died.
         "No data received", "Operation not permitted",
         "Name or service not known", "ERROR 400: Bad Request",
-        "globus_ftp_client: the operation was aborted"
+        "globus_ftp_client: the operation was aborted",
+        "Local file creation error"
     ]
     dn_errs = {}
     errdict = { e:0 for e in known_errors }
@@ -165,7 +166,7 @@ def retraction_counts( starttime ):
     Usually these are "database is locked" exceptions which occurred despite multiple retries."""
     # for one day: sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=12000 )
     # good enough for at least a week, maybe as much as four weeks:
-    sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=12000 )
+    sincelines = logsince( '/p/css03/scratch/logs/retracted.log', starttime, taillen=123000 )
     # Normally we just want the last line.  But that won't work if there are two runs in a
     # single day, or a run hasn't finished yet.
     summaries = [l[l.find("End of retracted.py")+21:] for l in sincelines if
