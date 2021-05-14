@@ -10,8 +10,10 @@ For performance reasons, I indexed last_done_transfer_date.
   sqlite> DELETE FROM dataset WHERE status NOT LIKE 'complete%' AND status NOT LIKE 'published%';
   sqlite> ALTER TABLE dataset ADD size INT;
   sqlite> UPDATE dataset SET size=(SELECT SUM(size) FROM file WHERE file.dataset_id=dataset.dataset_id)
-  sqlite> CREATE INDEX idx_dataset_6 on dataset (last_done_transfer_date);
   sqlite> .quit
+
+I also did this for an earlier version of this script, but it should no longer be useful:
+  sqlite> CREATE INDEX idx_dataset_6 on dataset (last_done_transfer_date);
 """
 
 
