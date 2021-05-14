@@ -59,21 +59,21 @@ end_date = datetime.date(2018, 7, 1)
 stop_date = datetime.date(2021, 5, 10)
 #testing stop_date = datetime.date(2018, 7, 2)
 delta = datetime.timedelta(days=1)
+curs = conn.cursor()
 while end_date <= stop_date:
     cmd = "SELECT SUM(size) FROM dataset WHERE last_done_transfer_date<'%s' "\
           % str(end_date)
     try:
-        curs = conn.cursor()
         curs.execute( cmd )
         results = curs.fetchall()
     except Exception as e:
         logging.debug("report_cumulative_data saw an exception %s" %e)
-        raise e
-    finally:
         curs.close()
+        raise e
     assert( len(results)==1 )
     size = results[0][0]
     rcd.write( str(end_date)[:10]+" 00:00:00,"+str(size)+".0\n" )
     end_date += delta
+curs.close()
 
 finish()
