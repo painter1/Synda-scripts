@@ -20,10 +20,10 @@ import logging
 import sqlite3
 import datetime
 import debug
-global db, conn, rcdf, rcd
+global db, conn, curs
 
 db = '/home/painter/db/sdt-tmp.db'
-rcdf = '/home/painter/db/rcd.csv'
+rcdf = '/home/painter/db/rcd-'
 conn = None
 activities = [
  'all', 'AerChemMIP', 'C4MIP', 'CDRMIP', 'CFMIP', 'CMIP', 'DAMIP', 'DCPP', 'FAFMIP', 'GMMIP',
@@ -32,7 +32,7 @@ activities = [
 
 def setup():
     """Initializes logging and the connection to the database, etc."""
-    global db, conn, rcdf, rcd
+    global db, conn, curs
 
     logfile = '/p/css03/scratch/logs/report_cumulative_data.log'
     logging.basicConfig( filename=logfile, level=logging.INFO, format='%(asctime)s %(message)s' )
@@ -41,39 +41,46 @@ def setup():
     if conn is None:
         timeout = 12000  # in seconds; i.e. 200 minutes
         conn = sqlite3.connect( db, timeout )
-
-    rcd = open( rcdf, 'w' )
+    curs = conn.cursor()
 
 def finish():
     """Closes connections to databases, etc."""
-    global db, conn, rcdf, rcd
+    global db, conn, curs
     conn.commit()
     conn.close()
     conn = None
-    rcd.close()
+    curs.close()
 
 setup()
 
-rcd.write( "date,data_footprint\n" )
-end_date = datetime.date(2018, 7, 1)
-stop_date = datetime.date(2021, 5, 10)
-#testing stop_date = datetime.date(2018, 7, 2)
-delta = datetime.timedelta(days=1)
-curs = conn.cursor()
-while end_date <= stop_date:
-    cmd = "SELECT SUM(size) FROM dataset WHERE last_done_transfer_date<'%s' "\
-          % str(end_date)
-    try:
-        curs.execute( cmd )
-        results = curs.fetchall()
-    except Exception as e:
-        logging.debug("report_cumulative_data saw an exception %s" %e)
-        curs.close()
-        raise e
-    assert( len(results)==1 )
-    size = results[0][0]
-    rcd.write( str(end_date)[:10]+" 00:00:00,"+str(size)+".0\n" )
-    end_date += delta
-curs.close()
+for activity in activities:
+    rcd = open( rcdf+activity+'.csv', 'w' )
+    rcd.write( "date,data_footprint\n" )
+    end_date = datetime.date(2018, 7, 1)
+    stop_date = datetime.date(2021, 5, 10)
+    delta = datetime.timedelta(days=1)
+
+    if activity=='all':
+        cmd = "SELECT last_done_transfer_date,size,dataset_functional_id FROM dataset"
+    else:
+        cmd = "SELECT last_done_transfer_date,size,dataset_functional_id FROM dataset"+\
+              " WHERE dataset_functional_id LIKE '%s%s%s'" % ( "%.",activity,".%" )
+    curs.execute( cmd )
+    results = curs.fetchall()  # date, size, dataset_functional_id
+    # ...it's all strings, e.g. results[0]=
+    # (u'2018-03-20 09:46:30.346505', 9940604,
+    #  u'CMIP6.CMIP.IPSL.IPSL-CM6A-LR.piControl.r1i1p1f1.AERmon.od550lt1aer.gr.v20180314')
+    results.sort( key=(lambda x: x[0] ) )
+    lastsize = 0
+    lastdate = "2000-01-01"
+    for result in results:
+        thissize = result[1] + lastsize
+        thisdate = result[0][:10]
+        if thisdate>lastdate:
+            rcd.write( lastdate+" 00:00:00,"+str(lastsize)+".0\n" )
+        lastsize = thissize
+        lastdate = thisdate
+    rcd.write( lastdate+" 00:00:00,"+str(lastsize)+".0\n" )
+    rcd.close()
 
 finish()
