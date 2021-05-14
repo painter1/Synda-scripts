@@ -4,7 +4,8 @@
 """Here is how to get ready to run this.  It involves making a temporary database with a "size"
 column for datasets.  Normally only files have a "size".
 For performance reasons, I indexed last_done_transfer_date.
-  cp /p/css03/painter/db/sdt.db_6_2021-05-10 ~/db/sdt-tmp.db 
+  mkdir $HOME/db
+  cp /p/css03/painter/db/sdt.db_6_2021-05-10 $HOME/db/sdt-tmp.db 
   sqlite3 ~/db/sdt-tmp.db
   # (Don't run the next line unless you are very sure that you're doing it to sdt-tmp.db ! )
   sqlite> DELETE FROM dataset WHERE status NOT LIKE 'complete%' AND status NOT LIKE 'published%';
@@ -17,15 +18,15 @@ I also did this for an earlier version of this script, but it should no longer b
 """
 
 
-import sys, pdb
+import sys, os, pdb
 import logging
 import sqlite3
 import datetime
 import debug
 global db, conn, curs
 
-db = '/home/painter/db/sdt-tmp.db'
-rcdf = '/home/painter/db/rcd-'
+db = os.path.expanduser('~/db/sdt-tmp.db')
+rcdf = os.path.expanduser('~/db/rcd-')
 conn = None
 activities = [
  'all', 'AerChemMIP', 'C4MIP', 'CDRMIP', 'CFMIP', 'CMIP', 'DAMIP', 'DCPP', 'FAFMIP', 'GMMIP',
